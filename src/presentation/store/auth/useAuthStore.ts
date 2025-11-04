@@ -1,0 +1,83 @@
+import { create } from 'zustand';
+import { User } from "../../../domain/entities/user";
+import { AuthStatus } from './auth.status';
+import { authCheckStatus, authLogin, authRegister } from '../../../actions/auth/auth';
+import { StorageAdapter } from '../../../config/adapters/storage-adapter';
+
+
+export interface AuthState {
+    status: AuthStatus;
+    token?: string;
+    user?: User;
+
+    login: (email: string, password: string) => Promise<boolean>;
+    checkStatus: () => Promise<boolean>;
+    logout: () => Promise<boolean>;
+    register: (fullName:string, email: string, password: string) => Promise<boolean>;
+
+
+}
+
+
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+    status: 'checking',
+    token: undefined,
+    user: undefined,
+
+    login: async (email: string, password: string) => {
+        const resp = await authLogin(email, password);
+        if(!resp){
+            set({status: 'unautenticathed', token: undefined, user: undefined})
+            return false;
+        }
+
+        //Save user and token in storage
+        await StorageAdapter.setItem('token', resp.token);
+
+        set({status: 'authenticated', token: resp.token, user: resp.user});
+        return true;
+
+    },
+
+    checkStatus: async () => {
+        const resp = await authCheckStatus();
+        if(!resp){
+            set({status: 'unautenticathed', token: undefined, user: undefined})
+            return false;
+        }
+
+        //Save user and token in storage
+        await StorageAdapter.setItem('token', resp.token);
+
+        set({status: 'authenticated', token: resp.token, user: resp.user});
+        return true;
+
+    },
+
+    logout: async () => {
+
+        set({status: 'unautenticathed', token: undefined, user: undefined})
+        await StorageAdapter.removeItem('token');
+        return true;
+
+    },
+
+    register: async (fullName: string, email: string, password: string) => {
+        const resp = await authRegister(fullName, email, password);
+        console.log('res', resp);
+        if(!resp){
+            set({status: 'unautenticathed', token: undefined, user: undefined})
+            return false;
+        }
+
+        //Save user and token in storage
+        await StorageAdapter.setItem('token', resp.token);
+
+        set({status: 'authenticated', token: resp.token, user: resp.user});
+        return true;
+
+    },
+
+
+}));
